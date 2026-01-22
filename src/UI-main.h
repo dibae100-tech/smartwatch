@@ -151,6 +151,10 @@ private:
     // Utility
     float getBatteryPercentage();
     String getWeekday(int day, int month, int year);
+
+    int lastMinute = -1;              // 🆕 추가
+    uint16_t circleColor = COLOR_RED; // 🆕 추가
+    uint16_t getRandomColor();     // 🆕 랜덤 색상 생성
     
 public:
     WatchUICLASS();

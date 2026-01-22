@@ -390,34 +390,55 @@ bool WatchUICLASS::detectSingleTap() {
 }
 
 bool WatchUICLASS::detectDoubleTap() {
+    static unsigned long lastTapTime = 0;
+    static int tapCount = 0;
     unsigned long currentTime = millis();
     
+    // 터치가 떼어지는 순간 감지
     if (touch.wasPressed && !touch.isPressed) {
         unsigned long pressDuration = currentTime - touch.pressStartTime;
         
-        if (pressDuration < 500) {
-            if (currentTime - touch.lastTapTime < DOUBLE_TAP_INTERVAL) {
-                touch.tapCount++;
-                
-                if (touch.tapCount >= 2) {
-                    touch.tapCount = 0;
-                    touch.lastTapTime = 0;
-                    return true;
-                }
-            } else {
-                touch.tapCount = 1;
-            }
+        _PP("Touch released, duration: ");
+        _PL(pressDuration);
+        
+        if (pressDuration < 500) {  // 짧은 터치
+            unsigned long tapInterval = currentTime - lastTapTime;
+            _PP("Tap interval: ");
+            _PL(tapInterval);
             
-            touch.lastTapTime = currentTime;
+            if (tapInterval < DOUBLE_TAP_INTERVAL && tapCount > 0) {
+                // 더블 탭 감지!
+                _PL(">>> DOUBLE TAP DETECTED! <<<");
+                tapCount = 0;
+                lastTapTime = 0;
+                return true;
+            } else {
+                // 첫 번째 탭
+                tapCount = 1;
+                _PL("First tap registered");
+            }
+            lastTapTime = currentTime;
         }
     }
     
-    if (currentTime - touch.lastTapTime > DOUBLE_TAP_INTERVAL * 2) {
-        touch.tapCount = 0;
+    // 타임아웃 - 탭 카운트 리셋
+    if (tapCount > 0 && (currentTime - lastTapTime > DOUBLE_TAP_INTERVAL)) {
+        _PL("Tap timeout, reset count");
+        tapCount = 0;
     }
     
     return false;
 }
+
+// 🆕 랜덤 RGB565 색상 생성 함수
+uint16_t WatchUICLASS::getRandomColor() {
+    uint8_t r = random(128, 256);  // 밝은 색상 위주
+    uint8_t g = random(128, 256);
+    uint8_t b = random(128, 256);
+    // RGB565 변환
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+}
+
 
 // ============================================
 // Status Check
@@ -671,12 +692,21 @@ void WatchUICLASS::drawClockFace() {
         prevAngle = newAngle;
     }
     
-    // 빨간 점 애니메이션
-    rAngle -= 2;
-    if (rAngle <= 0) rAngle = 359;
-    
-    tft->fillCircle((int)px[rAngle], (int)py[rAngle], 6, COLOR_RED);
-    prevRAngle = rAngle;
+    // 점 색각 변환 애니메이션
+    // 🆕 분이 바뀌면 랜덤 색상 적용
+        int currentMinute = minStr.toInt();
+        if (currentMinute != lastMinute) {
+            lastMinute = currentMinute;
+            circleColor = getRandomColor();
+            _PL("New minute! Color changed.");
+        }
+
+        // 빨간 점 애니메이션
+        rAngle -= 2;
+        if (rAngle <= 0) rAngle = 359;
+
+        tft->fillCircle((int)px[rAngle], (int)py[rAngle], 6, circleColor);  // 🆕 COLOR_RED → circleColor
+        prevRAngle = rAngle;
     
     // 초 업데이트
     if (sec != prevSec) {
